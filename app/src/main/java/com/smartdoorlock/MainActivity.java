@@ -24,8 +24,8 @@ import java.net.SocketException;
 public class MainActivity extends AppCompatActivity {
     private static String TAG = "MainActivityWithAudio";
 
-    private static final String DESTINATION = "192.168.35.100";
-    private static final String LOCALHOST = "192.168.35.98";
+    private static final String DESTINATION = "192.168.137.111";
+    private static final String LOCALHOST = "192.168.35.95";
     private static final int PORT = 50005;
 
     private static final int RECORDING_RATE = 44100;
@@ -37,13 +37,15 @@ public class MainActivity extends AppCompatActivity {
     private static int BUFFER_SIZE = AudioRecord.getMinBufferSize(RECORDING_RATE, CHANNEL, FORMAT);
     private static int Rx_BUFFER_SIZE = 2048;
 
-    private boolean currentlySendingAudio = true;
+    private boolean streamingState = false;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Bitmap bt = QRCode.from("Go Yeongu JonJal").bitmap();
+        Bitmap bt = QRCode.from("Prof. Yang09").bitmap();
         ImageView iv = findViewById(R.id.iv_QR);
         iv.setImageBitmap(bt);
 
@@ -54,11 +56,20 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    public void onBackPressed() {
+        if (streamingState) {
+            streamingState = false;
+        }else {
+            super.onBackPressed();
+        }
+    }
+
     private void startStreaming() {
 
         Log.i(TAG, "Starting the background thread to stream the audio data");
 
-        Thread streamThread = new Thread(new Runnable() {
+        Thread transmit = new Thread(new Runnable() {
 
             @Override
             public void run() {
@@ -84,8 +95,9 @@ public class MainActivity extends AppCompatActivity {
 
                     Log.d(TAG, "AudioRecord recording...");
                     recorder.startRecording();
+                    int pCounter = 0;
 
-                    while (currentlySendingAudio) {
+                    while (streamingState) {
 
                         // read the data into the buffer
                         int read = recorder.read(buffer, 0, buffer.length);
@@ -96,24 +108,29 @@ public class MainActivity extends AppCompatActivity {
 
                         // send the packet
                         socket.send(packet);
+                        pCounter++;
+                        if (pCounter >= 50) {
+                            Log.d(TAG, "50 packets transmitted");
+                            pCounter = 0;
+                        }
                     }
 
-                    Log.d(TAG, "AudioRecord finished recording");
+                    //Log.d(TAG, "AudioRecord finished recording");
 
                 } catch (Exception e) {
                     Log.e(TAG, "Exception: " + e);
                 }
             }
         });
-
+        streamingState = true;
         // start the thread
-        streamThread.start();
+        transmit.start();
     }
 
     public void startSpeakers() {
         // Creates the thread for receiving and playing back audio
 
-        Thread receiveThread = new Thread(new Runnable() {
+        Thread receive = new Thread(new Runnable() {
 
             @Override
             public void run() {
@@ -149,14 +166,20 @@ public class MainActivity extends AppCompatActivity {
 
                 try {
                     // Define a socket to receive the audio
+                    int pCounter = 0;
                     DatagramSocket socket = new DatagramSocket(PORT + 1);
                     byte[] buf = new byte[Rx_BUFFER_SIZE];
-                    while (true) {
+                    while (streamingState) {
                         // Play back the audio received from packets
                         DatagramPacket packet = new DatagramPacket(buf, Rx_BUFFER_SIZE);
                         socket.receive(packet);
-                        Log.i(TAG, "Packet received: " + packet.getLength());
+
                         track.write(packet.getData(), 0, Rx_BUFFER_SIZE);
+                        pCounter++;
+                        if (pCounter >= 50) {
+                            Log.i(TAG, "packets received: " + packet.getLength());
+                            pCounter = 0;
+                        }
                     }
                     // Stop playing back and release resources
 /*                        socket.disconnect();
@@ -174,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        receiveThread.start();
+        streamingState = true;
+        receive.start();
     }
 }
