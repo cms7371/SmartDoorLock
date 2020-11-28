@@ -2,15 +2,19 @@ package com.smartdoorlock;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
-import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.widget.ImageView;
 
 import net.glxn.qrgen.android.QRCode;
@@ -22,23 +26,26 @@ import java.net.InetAddress;
 import java.net.SocketException;
 
 public class MainActivity extends AppCompatActivity {
-    private static String TAG = "MainActivityWithAudio";
+    private static String TAG = "MainActivity";
 
     private static final String DESTINATION = "192.168.137.111";
-    private static final String LOCALHOST = "192.168.35.95";
+    private static final String LOCALHOST = "192.168.35.169";
     private static final int PORT = 50005;
 
     private static final int RECORDING_RATE = 44100;
     private static final int CHANNEL = AudioFormat.CHANNEL_IN_MONO;
     private static final int FORMAT = AudioFormat.ENCODING_PCM_16BIT;
 
-    private AudioRecord recorder;
 
     private static int BUFFER_SIZE = AudioRecord.getMinBufferSize(RECORDING_RATE, CHANNEL, FORMAT);
     private static int Rx_BUFFER_SIZE = 2048;
 
     private boolean streamingState = false;
+    private boolean serverState = false;
 
+    private Context context = this;
+
+    private Handler H = new Handler(Looper.getMainLooper());
 
 
     @Override
@@ -48,27 +55,55 @@ public class MainActivity extends AppCompatActivity {
         Bitmap bt = QRCode.from("Prof. Yang09").bitmap();
         ImageView iv = findViewById(R.id.iv_QR);
         iv.setImageBitmap(bt);
+        startUDPCommandServer();
+        findViewById(R.id.bt_VOIP).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startCalling();
+            }
+        });
+        findViewById(R.id.bt_interphone).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                sendUDPCommand("HELELELELELELELLE");
+            }
+        });
+    }
 
-        Log.i(TAG, "Starting the background thread to stream the audio data");
-        startStreaming();
-        startSpeakers();
+
+
+    private void startCalling(){
+        receiveAudio();
+        streamAudio();
+        H.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                CamDialog dialog = new CamDialog(context, DESTINATION);
+                dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    @Override
+                    public void onDismiss(DialogInterface dialogInterface) {
+                        streamingState = false;
+                        try {
+                            voiceReceivingSocket.close();
+                        } catch (Exception e){
+                            Log.d(TAG, "Audio receiving socket is not opened.");
+                        }
+                    }
+                });
+                dialog.show();
+            }
+        }, 1000);
 
 
     }
 
-    @Override
-    public void onBackPressed() {
-        if (streamingState) {
-            streamingState = false;
-        }else {
-            super.onBackPressed();
-        }
-    }
-
-    private void startStreaming() {
+    private void streamAudio() {
 
         Log.i(TAG, "Starting the background thread to stream the audio data");
 
+        // read the data into the buffer
+        // place contents of buffer into the packet
+        // send the packet
         Thread transmit = new Thread(new Runnable() {
 
             @Override
@@ -82,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
                     byte[] buffer = new byte[BUFFER_SIZE];
 
                     Log.d(TAG, "Connecting to " + DESTINATION + ":" + PORT);
-                    final InetAddress serverAddress = InetAddress
+                    final InetAddress destinationAddress = InetAddress
                             .getByName(DESTINATION);
                     Log.d(TAG, "Connected to " + DESTINATION + ":" + PORT);
 
@@ -90,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
                     DatagramPacket packet;
 
                     Log.d(TAG, "Creating the AudioRecord");
-                    recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                    AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                             RECORDING_RATE, CHANNEL, FORMAT, BUFFER_SIZE * 10);
 
                     Log.d(TAG, "AudioRecord recording...");
@@ -104,18 +139,21 @@ public class MainActivity extends AppCompatActivity {
 
                         // place contents of buffer into the packet
                         packet = new DatagramPacket(buffer, read,
-                                serverAddress, PORT);
+                                destinationAddress, PORT);
 
                         // send the packet
                         socket.send(packet);
                         pCounter++;
                         if (pCounter >= 50) {
-                            Log.d(TAG, "50 packets transmitted");
+                            Log.d(TAG, "50 packets transmitted. len : " + packet.getLength());
                             pCounter = 0;
                         }
                     }
-
-                    //Log.d(TAG, "AudioRecord finished recording");
+                    socket.disconnect();
+                    socket.close();
+                    recorder.stop();
+                    recorder.release();
+                    Log.d(TAG, "AudioRecord finished recording");
 
                 } catch (Exception e) {
                     Log.e(TAG, "Exception: " + e);
@@ -127,7 +165,9 @@ public class MainActivity extends AppCompatActivity {
         transmit.start();
     }
 
-    public void startSpeakers() {
+    DatagramSocket voiceReceivingSocket;
+
+    public void receiveAudio() {
         // Creates the thread for receiving and playing back audio
 
         Thread receive = new Thread(new Runnable() {
@@ -137,17 +177,6 @@ public class MainActivity extends AppCompatActivity {
 
                 // Create an instance of AudioTrack, used for playing back audio
                 Log.i(TAG, "Receive thread started. Thread id: " + Thread.currentThread().getId());
-/*                AudioTrack track = new AudioTrack(
-                        new AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                                .build(),
-                        new AudioFormat.Builder()
-                                .setChannelIndexMask(1)
-                                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                                .setSampleRate(RECORDING_RATE)
-                                .build(),
-                        BUFFER_SIZE, AudioTrack.MODE_STREAM, 123123);*/
                 AudioTrack track = new AudioTrack.Builder()
                         .setAudioAttributes(new AudioAttributes.Builder()
                                 .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -160,19 +189,17 @@ public class MainActivity extends AppCompatActivity {
                                 ).build())
                         .setBufferSizeInBytes(Rx_BUFFER_SIZE)
                         .build();
-/*                AudioTrack track = new AudioTrack(AudioManager.STREAM_MUSIC, RECORDING_RATE, AudioFormat.CHANNEL_OUT_MONO,
-                        AudioFormat.ENCODING_PCM_16BIT, BUFFER_SIZE, AudioTrack.MODE_STREAM);*/
                 track.play();
 
                 try {
                     // Define a socket to receive the audio
                     int pCounter = 0;
-                    DatagramSocket socket = new DatagramSocket(PORT + 1);
+                    voiceReceivingSocket = new DatagramSocket(PORT + 1);
                     byte[] buf = new byte[Rx_BUFFER_SIZE];
                     while (streamingState) {
                         // Play back the audio received from packets
                         DatagramPacket packet = new DatagramPacket(buf, Rx_BUFFER_SIZE);
-                        socket.receive(packet);
+                        voiceReceivingSocket.receive(packet);
 
                         track.write(packet.getData(), 0, Rx_BUFFER_SIZE);
                         pCounter++;
@@ -182,22 +209,95 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                     // Stop playing back and release resources
-/*                        socket.disconnect();
-                        socket.close();
-                        track.stop();
-                        track.flush();
-                        track.release();
-                        return;*/
-                } catch (SocketException e) {
 
+                } catch (SocketException e) {
                     Log.e(TAG, "SocketException: " + e.toString());
                 } catch (IOException e) {
-
                     Log.e(TAG, "IOException: " + e.toString());
                 }
+                track.stop();
+                track.flush();
+                track.release();
+
+                Log.d(TAG, "Finished receiving packets");
             }
         });
         streamingState = true;
         receive.start();
+    }
+
+    DatagramSocket commandReceivingSocket;
+
+    public void startUDPCommandServer() {
+        Thread th = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    int port = PORT + 2;
+                    commandReceivingSocket = new DatagramSocket(port);
+                    while (serverState) {
+                        byte[] buffer = new byte[32];
+                        DatagramPacket dp = new DatagramPacket(buffer, buffer.length);
+                        System.out.println("ready");
+                        commandReceivingSocket.receive(dp);
+                        String str = new String(dp.getData());
+                        System.out.println("수신된 데이터 : " + str);
+                        String command = str.substring(0, 5);
+                        switch (command){
+                            case "SCALL" :
+                                startCalling();
+                                break;
+                            default:
+                                break;
+                        }
+
+                        InetAddress ia = dp.getAddress();
+                        port = dp.getPort();
+                        System.out.println("client ip : " + ia + " , client port : " + port);
+                        dp = new DatagramPacket(dp.getData(), dp.getData().length, ia, port);
+                        commandReceivingSocket.send(dp);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, e + " on UDP server");
+                }
+            }
+        });
+        serverState = true;
+        th.start();
+    }
+
+
+
+    private void sendUDPCommand(String command){
+        final String message = command;
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+
+                    DatagramSocket commandSendingSocket = new DatagramSocket();
+                    InetAddress destinationAddress = InetAddress.getByName(DESTINATION);
+                    byte[] commandBuffer = message.getBytes();
+                    DatagramPacket commandPacket = new DatagramPacket(commandBuffer, commandBuffer.length, destinationAddress, PORT + 3);
+                    commandSendingSocket.send(commandPacket);
+                    Log.d(TAG, "Command : " + message + "  TRANSMITTED");
+
+
+                } catch (Exception e) {
+                    Log.e(TAG, e + " on UDP command sender");
+                }
+            }
+        });
+        thread.start();
+
+
+    }
+
+
+    @Override
+    protected void onDestroy() {
+        commandReceivingSocket.close();
+        serverState = false;
+        super.onDestroy();
     }
 }
