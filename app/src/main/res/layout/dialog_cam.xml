@@ -5,7 +5,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="320dp"
         android:layout_height="360dp"
@@ -13,17 +12,13 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
-
         <WebView
             android:id="@+id/wb_cam"
             android:layout_width="320dp"
             android:layout_height="240dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
-
-        </WebView>
-
+            app:layout_constraintTop_toTopOf="parent" />
         <Button
             android:id="@+id/bt_open"
             android:layout_width="0dp"
@@ -31,8 +26,8 @@
             android:text="문열기"
             app:layout_constraintBottom_toTopOf="@+id/bt_dialog_exit"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
-
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="HardcodedText" />
         <Button
             android:id="@+id/bt_dialog_exit"
             android:layout_width="0dp"
@@ -40,7 +35,10 @@
             android:text="종료"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
-
+            app:layout_constraintStart_toStartOf="parent"
+            tools:ignore="HardcodedText" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
