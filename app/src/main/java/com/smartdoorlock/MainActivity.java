@@ -4,28 +4,33 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 
 import net.glxn.qrgen.android.QRCode;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.Random;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity{
     private static String TAG = "MainActivity";
 
     private static final String DESTINATION = "192.168.137.111";
@@ -47,12 +52,14 @@ public class MainActivity extends AppCompatActivity {
 
     private Handler H = new Handler(Looper.getMainLooper());
 
+    private Bitmap tempQR;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Bitmap bt = QRCode.from("Prof. Yang09").bitmap();
+        Bitmap bt = QRCode.from("Prof. Yang09").withSize(500,500).bitmap();
         ImageView iv = findViewById(R.id.iv_QR);
         iv.setImageBitmap(bt);
         startUDPCommandServer();
@@ -62,24 +69,43 @@ public class MainActivity extends AppCompatActivity {
                 startCalling();
             }
         });
-        findViewById(R.id.bt_interphone).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.bt_key_gen).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                sendUDPCommand("HELELELELELELELLE");
+                StringBuffer temp = new StringBuffer();
+                Random rnd = new Random();
+                for (int i = 0; i < 10; i++) {
+                    temp.append((char) (33 + rnd.nextInt(93)));
+                }
+                sendUDPCommand("KYGEN:"+ temp.toString());
+                //KYCNF로 옮겨야 하는 코드
+                tempQR = QRCode.from(temp.toString()).withSize(500, 500).bitmap();
+                KeyGenDialog dialog = new KeyGenDialog(context, tempQR);
+                KeyGenDialog.KeyGenDialogListener listener = new KeyGenDialog.KeyGenDialogListener() {
+                    @Override
+                    public void onShare() {
+                        Intent sharingIntent = new Intent(Intent.ACTION_SEND);
+                        sharingIntent.putExtra(Intent.EXTRA_STREAM, getImageUri(context, tempQR));
+                        sharingIntent.setType("image/jpeg");
+                        startActivity(Intent.createChooser(sharingIntent, "일회용 키 공유"));
+                    }
+                };
+                dialog.setListener(listener);
+                dialog.show();
             }
         });
     }
 
 
-
     private void startCalling(){
-        receiveAudio();
-        streamAudio();
+
         H.postDelayed(new Runnable() {
             @Override
             public void run() {
-                CamDialog dialog = new CamDialog(context, DESTINATION);
-                dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                receiveAudio();
+                streamAudio();
+                CamDialog camDialog = new CamDialog(context, DESTINATION);
+                camDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
                     @Override
                     public void onDismiss(DialogInterface dialogInterface) {
                         streamingState = false;
@@ -90,7 +116,14 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                 });
-                dialog.show();
+                CamDialog.CamDialogListener listener = new CamDialog.CamDialogListener() {
+                    @Override
+                    public void onCamDialogOpen() {
+                        sendUDPCommand("DOPEN");
+                    }
+                };
+                camDialog.setListener(listener);
+                camDialog.show();
             }
         }, 1000);
 
@@ -247,10 +280,11 @@ public class MainActivity extends AppCompatActivity {
                             case "SCALL" :
                                 startCalling();
                                 break;
+                            case "KYCNF" :
+
                             default:
                                 break;
                         }
-
                         InetAddress ia = dp.getAddress();
                         port = dp.getPort();
                         System.out.println("client ip : " + ia + " , client port : " + port);
@@ -289,8 +323,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         thread.start();
+    }
 
-
+    private Uri getImageUri(Context context, Bitmap inImage) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+        String path = MediaStore.Images.Media.insertImage(context.getContentResolver(), inImage, "Title", null);
+        return Uri.parse(path);
     }
 
 
@@ -300,4 +339,6 @@ public class MainActivity extends AppCompatActivity {
         serverState = false;
         super.onDestroy();
     }
+
+
 }

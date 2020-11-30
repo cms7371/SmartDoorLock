@@ -19,6 +19,12 @@ public class CamDialog extends Dialog {
         this.DESTINATION = destination;
     }
 
+    interface CamDialogListener {
+        void onCamDialogOpen();
+    }
+
+    private CamDialogListener listener;
+
 
 
     @Override
@@ -50,7 +56,19 @@ public class CamDialog extends Dialog {
                 dismiss();
             }
         });
+        findViewById(R.id.bt_open).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mWebView.destroy();
+                listener.onCamDialogOpen();
+                dismiss();
+            }
+        });
 
+    }
+
+    public void setListener(CamDialogListener listener){
+        this.listener = listener;
     }
 
 
