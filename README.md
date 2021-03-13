@@ -1,5 +1,6 @@
-# SmartDoorLock 성균관대학고 2015311208 채민석 종합설계프로젝트 안드로이드 소스 코드
-## Main Activity 바로가기 : https://github.com/cms7371/SmartDoorLock/blob/master/app/src/main/java/com/smartdoorlock/MainActivity.java
+# SmartDoorLock 성균관대학고 2015311208 채민석
+# 종합설계프로젝트 소스 코드
+### Main Activity 바로가기 : https://github.com/cms7371/SmartDoorLock/blob/master/app/src/main/java/com/smartdoorlock/MainActivity.java
 #### 종합설계프로젝트의 주제인 무선전력송신장치를 적용하여 배터리 교체가 없는 스마트 도어락의 소스코드 입니다. 레포트 내용 일부를 발췌하여 자세한 설명을 대신합니다.
 > 과제 추진배경(개발동기) 및 목적, 필요성
 > 우리가 일상생활에서 마주치는 기존의 도어락과 새롭게 등장하는 스마트 도어락은 주기적으로 건전지를 교체해 주면서 사용해야 한다. 하지만 이러한 도어락에 무선 전력 송수신 장치를 접목해, 문이 닫혔을 때 전원이 공급되면서 배터리가 충전되고, 문이 열리는 동안에는 내장된 배터리로 동작하도록 설계해 도어락의 배터리를 주기적으로 교체해 주어야하는 불편함을 해소할 수 있다고 생각했다. 
