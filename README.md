@@ -1,4 +1,4 @@
-## SmartDoorLock 성균관대학고 2015311208 채민석 종합설계프로젝트 소스 코드
+## SmartDoorLock 성균관대학 2015311208 채민석 종합설계프로젝트 소스 코드
 ##### Main Activity 바로가기 : https://github.com/cms7371/SmartDoorLock/blob/master/app/src/main/java/com/smartdoorlock/MainActivity.java
 #### 종합설계프로젝트의 주제인 무선전력송신장치를 적용하여 배터리 교체가 없는 스마트 도어락의 소스코드 입니다. 레포트 내용 일부를 발췌하여 자세한 설명을 대신합니다.
 > 과제 추진배경(개발동기) 및 목적, 필요성</br>
